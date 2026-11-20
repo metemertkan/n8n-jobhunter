@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+*.tgz
+*.key
+*.pem
+credentials*.json
+*creds*.json
+# n8n data lives in the Docker volume n8n_data; never commit a copy of it
+n8n_data/
+.n8n/
+data/
+logs/
+__pycache__/

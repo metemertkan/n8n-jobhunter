@@ -1,0 +1,449 @@
+{
+  "id": "LnkdAlertsToJH01",
+  "name": "LinkedIn job alerts -> JobHunter",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Daily 09:00 Amsterdam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "from:jobalerts-noreply@linkedin.com in:inbox"
+            },
+            {
+              "name": "maxResults",
+              "value": "25"
+            }
+          ]
+        }
+      },
+      "name": "List LinkedIn alert emails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// one item per message id; nothing found -> workflow ends here\nconst msgs = $json.messages || [];\nreturn msgs.map(m => ({ json: { id: m.id } }));"
+      },
+      "name": "One item per email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "format",
+              "value": "full"
+            }
+          ]
+        }
+      },
+      "name": "Get email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/linkedin-alerts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json, dry_run: false }) }}",
+        "options": {
+          "timeout": 1800000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Import jobs (JobImporter -> JobHunter)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// attach the Gmail message id to the import outcome\nconst r = $json || {};\nreturn { json: { ...r, ok: r.ok === true, gmail_id: $('Get email').item.json.id,\n  summary: (r.jobs || []).map(j => `${j.id} ${j.outcome}`).join('; '),\n  error_text: (r.errors || []).concat(r.error ? [r.error] : []).join(' | ') } };"
+      },
+      "name": "Attach email id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "All jobs handled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.gmail_id }}/trash",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "name": "Move email to Trash",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"name\": \"JobHunter/import-failed\", \"labelListVisibility\": \"labelShow\", \"messageListVisibility\": \"show\"}"
+      },
+      "name": "Ensure failure label",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1700,
+        220
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "name": "List labels",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1940,
+        220
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// failed emails + the id of the 'JobHunter/import-failed' label\nconst label = ($json.labels || []).find(l => l.name === 'JobHunter/import-failed');\nif (!label) throw new Error('Gmail label JobHunter/import-failed not found');\nreturn $('All jobs handled?').all(1).map(i => ({ json: { gmail_id: i.json.gmail_id, label_id: label.id, error_text: i.json.error_text, summary: i.json.summary } }));"
+      },
+      "name": "Failed emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.gmail_id }}/modify",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ addLabelIds: [$json.label_id] }) }}"
+      },
+      "name": "Label email as failed (kept in inbox)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2420,
+        220
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily 09:00 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "List LinkedIn alert emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "List LinkedIn alert emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List LinkedIn alert emails": {
+      "main": [
+        [
+          {
+            "node": "One item per email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per email": {
+      "main": [
+        [
+          {
+            "node": "Get email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get email": {
+      "main": [
+        [
+          {
+            "node": "Import jobs (JobImporter -> JobHunter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Import jobs (JobImporter -> JobHunter)": {
+      "main": [
+        [
+          {
+            "node": "Attach email id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach email id": {
+      "main": [
+        [
+          {
+            "node": "All jobs handled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All jobs handled?": {
+      "main": [
+        [
+          {
+            "node": "Move email to Trash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ensure failure label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure failure label": {
+      "main": [
+        [
+          {
+            "node": "List labels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List labels": {
+      "main": [
+        [
+          {
+            "node": "Failed emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed emails": {
+      "main": [
+        [
+          {
+            "node": "Label email as failed (kept in inbox)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": []
+}
