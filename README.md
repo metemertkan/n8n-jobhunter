@@ -22,11 +22,22 @@ Gmail (from:jobalerts-noreply@linkedin.com in:inbox)
 | Container | `n8n` (image `n8nio/n8n:2.48.7`), compose project `n8n` |
 | Data | Docker volume `n8n_data` (SQLite + settings). No other container or volume is used. |
 | Ports | `127.0.0.1:5678` and `100.72.60.5:5678` (Tailscale) only, never 0.0.0.0 |
+| Networks | `default` (internet/Gmail), `jobalerts` (to `job_importer:8765`), `jobhunter_net` (so `agentic_job_hunter` can call the webhook; no port published) |
 | URLs | http://localhost:5678 (on the server) · http://100.72.60.5:5678 or http://server-x570-aorus-master.tail526ddc.ts.net:5678 (tailnet) |
 | Secrets | `.env` (chmod 600): `N8N_ENCRYPTION_KEY`. The JobImporter token is stored encrypted as the n8n credential "JobImporter alerts token". |
 | Hardening | public API off, env access from nodes blocked, Execute Command / SSH / Local File Trigger nodes removed, telemetry off, executions pruned after 14 days |
 
 Workflow file: `workflows/linkedin-alerts-to-jobhunter.workflow.json`. It is imported but not published or active.
+
+## Manual trigger from JobHunter ("Check LinkedIn alerts now", JobHunter PR #6)
+
+- Webhook node "JobHunter button (webhook)": `POST http://n8n:5678/webhook/jobhunter-linkedin-alerts`, reachable
+  only on the Docker network `jobhunter_net`. It needs the header `X-JobHunter-Token`, checked against the n8n
+  Header Auth credential "JobHunter webhook token". It answers `{"status":"started"}` immediately and then runs the same path as the daily schedule.
+  A wrong or missing token gets 403.
+- JobHunter's `.env` holds `N8N_ALERTS_WEBHOOK_URL` and `N8N_ALERTS_WEBHOOK_TOKEN` (same secret; never in git).
+- A trigger is a real run: it imports the jobs and trashes the processed alert emails.
+- To rotate the token, put a new value in JobHunter's `.env` and in the n8n credential, then restart job_hunter.
 
 ## One-time setup (Mete)
 

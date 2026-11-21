@@ -1,7 +1,6 @@
 {
   "id": "LnkdAlertsToJH01",
   "name": "LinkedIn job alerts -> JobHunter",
-  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -22,7 +21,8 @@
       "position": [
         0,
         0
-      ]
+      ],
+      "id": "daf2d5f5-ada0-4453-b30a-347d51a67ff5"
     },
     {
       "parameters": {},
@@ -32,7 +32,8 @@
       "position": [
         0,
         200
-      ]
+      ],
+      "id": "cd7fce5d-ce12-47ee-a0c2-bea48f60afff"
     },
     {
       "parameters": {
@@ -67,7 +68,8 @@
           "id": "gmailMeteOAuth01",
           "name": "Gmail (Mete)"
         }
-      }
+      },
+      "id": "0c148c14-1d2f-4d8a-aded-2c5af4b3fc58"
     },
     {
       "parameters": {
@@ -79,7 +81,8 @@
       "position": [
         480,
         100
-      ]
+      ],
+      "id": "deed1119-f243-4a4b-aac4-4759aeebc438"
     },
     {
       "parameters": {
@@ -110,7 +113,8 @@
           "id": "gmailMeteOAuth01",
           "name": "Gmail (Mete)"
         }
-      }
+      },
+      "id": "34de0344-3755-40be-aa8d-929c17a5a2d9"
     },
     {
       "parameters": {
@@ -149,7 +153,8 @@
           "name": "JobImporter alerts token"
         }
       },
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "id": "8aaebd92-9517-43eb-8fbb-86cd9175f64d"
     },
     {
       "parameters": {
@@ -162,7 +167,8 @@
       "position": [
         1200,
         100
-      ]
+      ],
+      "id": "76cc7911-5400-4167-b44f-010cb60777b1"
     },
     {
       "parameters": {
@@ -195,7 +201,8 @@
       "position": [
         1440,
         100
-      ]
+      ],
+      "id": "ed6bbcba-1b93-4211-8b9f-6fa6f1864e27"
     },
     {
       "parameters": {
@@ -217,7 +224,8 @@
           "id": "gmailMeteOAuth01",
           "name": "Gmail (Mete)"
         }
-      }
+      },
+      "id": "927a75d7-e59f-47fc-9223-6865efc00d23"
     },
     {
       "parameters": {
@@ -244,7 +252,8 @@
         }
       },
       "executeOnce": true,
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "id": "4df35b8e-5f17-472d-87f8-2167d3bd1d21"
     },
     {
       "parameters": {
@@ -267,7 +276,8 @@
           "name": "Gmail (Mete)"
         }
       },
-      "executeOnce": true
+      "executeOnce": true,
+      "id": "a64e51c4-d083-4ae0-89e2-6ece1ba495c3"
     },
     {
       "parameters": {
@@ -279,7 +289,8 @@
       "position": [
         2180,
         220
-      ]
+      ],
+      "id": "96e4e51e-c883-4708-bcb3-c38256e3b73e"
     },
     {
       "parameters": {
@@ -304,7 +315,35 @@
           "id": "gmailMeteOAuth01",
           "name": "Gmail (Mete)"
         }
-      }
+      },
+      "id": "a9ec150a-1265-4a86-a1ef-f0522b8f4932"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jobhunter-linkedin-alerts",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {
+          "responseData": "{\"status\":\"started\"}"
+        }
+      },
+      "name": "JobHunter button (webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "webhookId": "d6881092-bcaa-40fa-8664-c1457e5fce5b",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jhWebhookToken01",
+          "name": "JobHunter webhook token"
+        }
+      },
+      "id": "cd2dc23d-f634-4bd5-ad5c-748229051baf"
     }
   ],
   "connections": {
@@ -435,6 +474,17 @@
           }
         ]
       ]
+    },
+    "JobHunter button (webhook)": {
+      "main": [
+        [
+          {
+            "node": "List LinkedIn alert emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
@@ -445,5 +495,6 @@
     "callerPolicy": "workflowsFromSameOwner"
   },
   "pinData": {},
-  "tags": []
+  "tags": [],
+  "active": false
 }

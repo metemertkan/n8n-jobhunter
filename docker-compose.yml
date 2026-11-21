@@ -42,8 +42,9 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       - ./workflows:/workflows:ro
-    # default = internet (Gmail API); jobalerts = private network to job_importer:8765 (created by JobImporter).
-    networks: [default, jobalerts]
+    # default = internet (Gmail API); jobalerts = private network to job_importer:8765 (created by JobImporter);
+    # jobhunter_net = JobHunter's network, so agentic_job_hunter can call http://n8n:5678/webhook/... (no new ports).
+    networks: [default, jobalerts, jobhunter_net]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5678/healthz >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -64,3 +65,6 @@ networks:
   jobalerts:
     external: true
     name: jobalerts
+  jobhunter_net:
+    external: true
+    name: jobhunter_net
