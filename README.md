@@ -69,3 +69,13 @@ docker exec n8n n8n import:workflow --input=/workflows/linkedin-alerts-to-jobhun
 - Dry run without n8n: `docker exec job_importer /app/run.sh --country alerts --linkedin-alert-ids 4454269627 --dry-run`.
 - Backups: the volume `n8n_data` and `.env`. Example: `docker run --rm -v n8n_data:/d -v $PWD:/b alpine tar czf /b/n8n_data.tgz -C /d .` (stop n8n first).
 - The Tailscale port binding needs tailscaled up before Docker starts n8n. `restart: unless-stopped` retries it.
+
+## Application tracking -> JobHunter (`workflows/application-tracking-to-jobhunter.workflow.json`)
+
+Searches the inbox (`newer_than:2d`, application keywords, excluding LinkedIn job alerts, promotions, own mail
+and already labelled mail), sends each mail to `http://job_importer:8765/track-application` and applies the
+returned label (`JobHunter/tracked` or `JobHunter/needs-review`). Never trashes or archives mail.
+Triggers: hourly at :15 from 07:00 to 23:00 Amsterdam (node disabled until tracking goes live), manual, and
+webhook `POST /webhook/jobhunter-application-tracking` (header `X-JobHunter-Token`, body
+`{"dry_run": true, "newer_than": "30d"}`). Live status changes also need `[tracking] mode = "live"` in
+JobImporter's config.toml.

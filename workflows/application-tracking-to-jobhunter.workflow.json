@@ -1,0 +1,536 @@
+{
+  "id": "AppTrackToJH0001",
+  "name": "Application tracking -> JobHunter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "15 7-23 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Hourly :15, 07-23 Amsterdam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "disabled": true,
+      "id": "15c2c792-f0ff-4764-b98a-53b8802f5fc1"
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "2cc524a6-04d1-45a3-a3c7-2510b62ea439"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jobhunter-application-tracking",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {
+          "responseData": "{\"status\":\"started\"}"
+        }
+      },
+      "name": "Webhook (manual / dry run)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "webhookId": "372e25d2-f3b7-4df2-beba-a5cb964da6a8",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jhWebhookToken01",
+          "name": "JobHunter webhook token"
+        }
+      },
+      "id": "1e8b359f-5b0f-4f07-b1e8-83c18845471d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Settings for this run.\n// Schedule / manual: last 2 days, mode decided by JobImporter config ([tracking] mode in config.toml).\n// Webhook body may set {\"dry_run\": true, \"newer_than\": \"60d\"}; dry_run can only make a run SAFER, never live.\nconst body = ($json && $json.body) || {};\nconst nt = /^\\d{1,3}d$/.test(String(body.newer_than || '')) ? String(body.newer_than) : '2d';\nconst dry = body.dry_run === true || body.dry_run === 'true';\nconst q = [\n  'in:inbox', `newer_than:${nt}`, '-from:me',\n  '-from:jobalerts-noreply@linkedin.com',            // LinkedIn job alerts: handled by the alerts workflow\n  '-label:JobHunter-tracked', '-label:JobHunter-needs-review', '-label:JobHunter-import-failed',\n  '-category:promotions',\n  \"(application OR applying OR applied OR apply OR interview OR candidacy OR candidate OR \\\"next steps\\\" OR unfortunately OR recruiter OR \\\"talent acquisition\\\" OR position OR role OR vacancy OR vacature OR sollicitatie OR sollicitatiegesprek OR helaas OR assessment)\",\n].join(' ');\nreturn [{ json: { dry_run: dry, newer_than: nt, q } }];"
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "f6ea0ef3-6e36-408c-ab81-eb09864b264c"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "qs",
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 10
+            }
+          }
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "name": "List candidate emails",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "854d0a12-b890-46bd-9d63-4b63a995ed84"
+    },
+    {
+      "parameters": {
+        "jsCode": "// all pages -> one item per message id (oldest first, so statuses advance in order)\nconst dry = $('Settings').first().json.dry_run;\nconst ids = [];\nfor (const p of $input.all()) for (const m of (p.json.messages || [])) ids.push(m.id);\nreturn [...new Set(ids)].reverse().map(id => ({ json: { id, dry_run: dry } }));"
+      },
+      "name": "One item per email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "811e9e4c-06b5-495d-8895-8f45ceb39db4"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "format",
+              "value": "full"
+            }
+          ]
+        }
+      },
+      "name": "Get email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "4d295011-1aac-49ec-8297-c6dad7412b66"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/track-application",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json, dry_run: $('Settings').first().json.dry_run }) }}",
+        "options": {
+          "timeout": 300000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "name": "Classify + update status (JobImporter -> JobHunter)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "dfe19f06-7938-4f68-8ded-40bee2e438a4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// outcome + Gmail id; label is null in dry-run mode, on irrelevant mail and on errors (retried next run)\nconst r = $json || {};\nreturn { json: { ...r, gmail_id: $('Get email').item.json.id, label: r.ok === true ? (r.label || null) : null } };",
+        "mode": "runOnceForEachItem"
+      },
+      "name": "Attach email id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        0
+      ],
+      "id": "ca342b41-0daa-4c7e-8946-e0e6b0ac1e1e"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.label }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Needs a label?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        0
+      ],
+      "id": "893f047e-3eed-4f87-bf48-42e8e45f3b31"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { name: 'JobHunter/tracked' } }, { json: { name: 'JobHunter/needs-review' } }];"
+      },
+      "name": "Label names",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -100
+      ],
+      "executeOnce": true,
+      "id": "628ef7a8-d406-4fb4-bdee-7a34b1c3618d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.name, labelListVisibility: 'labelShow', messageListVisibility: 'show' }) }}"
+      },
+      "name": "Ensure labels exist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "8b5ff45e-ab21-4b88-8225-c615cbf0c93e"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/labels",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "name": "List labels",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "executeOnce": true,
+      "id": "60265902-ba7b-4415-aca6-334a8c03a3bd"
+    },
+    {
+      "parameters": {
+        "jsCode": "// label ids for the emails that need one (never trashed, never archived)\nconst byName = Object.fromEntries(($json.labels || []).map(l => [l.name, l.id]));\nreturn $('Needs a label?').all(0).map(i => {\n  const id = byName[i.json.label];\n  if (!id) throw new Error(`Gmail label ${i.json.label} not found`);\n  return { json: { gmail_id: i.json.gmail_id, label_id: id, action: i.json.action } };\n});"
+      },
+      "name": "Emails to label",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -100
+      ],
+      "id": "925a5bf9-bd5e-4fbd-9cda-8070677842d7"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://gmail.googleapis.com/gmail/v1/users/me/messages/{{ $json.gmail_id }}/modify",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ addLabelIds: [$json.label_id] }) }}"
+      },
+      "name": "Label email",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        -100
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "caad17b0-7151-401b-a5c9-c5911f7ce872"
+    }
+  ],
+  "connections": {
+    "Hourly :15, 07-23 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (manual / dry run)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "List candidate emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List candidate emails": {
+      "main": [
+        [
+          {
+            "node": "One item per email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per email": {
+      "main": [
+        [
+          {
+            "node": "Get email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get email": {
+      "main": [
+        [
+          {
+            "node": "Classify + update status (JobImporter -> JobHunter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify + update status (JobImporter -> JobHunter)": {
+      "main": [
+        [
+          {
+            "node": "Attach email id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach email id": {
+      "main": [
+        [
+          {
+            "node": "Needs a label?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs a label?": {
+      "main": [
+        [
+          {
+            "node": "Label names",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Label names": {
+      "main": [
+        [
+          {
+            "node": "Ensure labels exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure labels exist": {
+      "main": [
+        [
+          {
+            "node": "List labels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List labels": {
+      "main": [
+        [
+          {
+            "node": "Emails to label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Emails to label": {
+      "main": [
+        [
+          {
+            "node": "Label email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false
+}
