@@ -20,7 +20,6 @@
         0,
         0
       ],
-      "disabled": true,
       "id": "15c2c792-f0ff-4764-b98a-53b8802f5fc1"
     },
     {
@@ -130,7 +129,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// all pages -> one item per message id (oldest first, so statuses advance in order)\nconst dry = $('Settings').first().json.dry_run;\nconst ids = [];\nfor (const p of $input.all()) for (const m of (p.json.messages || [])) ids.push(m.id);\nreturn [...new Set(ids)].reverse().map(id => ({ json: { id, dry_run: dry } }));"
+        "jsCode": "// all pages -> one item per message id, NEWEST FIRST (Gmail order): a later 'position closed'\n// email in a thread is seen before the older applied/interview emails it supersedes; statuses never go backwards\nconst dry = $('Settings').first().json.dry_run;\nconst ids = [];\nfor (const p of $input.all()) for (const m of (p.json.messages || [])) ids.push(m.id);\nreturn [...new Set(ids)].map(id => ({ json: { id, dry_run: dry } }));"
       },
       "name": "One item per email",
       "type": "n8n-nodes-base.code",
