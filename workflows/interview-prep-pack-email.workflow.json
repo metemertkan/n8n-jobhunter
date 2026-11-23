@@ -1,0 +1,345 @@
+{
+  "id": "InterviewPrep001",
+  "name": "Interview prep pack -> email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "45 9 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Daily 09:45 Amsterdam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "396b21c2-322a-49a9-aaa3-235fd413b85d",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "3ee8f2a8-d0c7-432e-b4c8-d30c7445a72b"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jobhunter-interview-prep",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {
+          "responseData": "{\"status\":\"started\"}"
+        }
+      },
+      "name": "Webhook (manual)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "webhookId": "3c1a55cc-f2e4-47e2-a2ee-a725cb7e92f0",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jhWebhookToken01",
+          "name": "JobHunter webhook token"
+        }
+      },
+      "id": "3e012230-4353-403b-97be-79e5b843df9a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// webhook body may set {\"job_id\": 136, \"force\": true}; schedule/manual: every IN-PROGRESS job without a pack yet\nconst b = ($json && $json.body) || {};\nconst id = /^\\d+$/.test(String(b.job_id ?? '')) ? Number(b.job_id) : null;\nreturn [{ json: { job_id: id, force: b.force === true || b.force === 'true' } }];"
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "aa0a4ad3-4793-4707-8878-250e77218704"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/prep-pack",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ job_id: $json.job_id, force: $json.force }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "name": "Build prep packs (JobHunter prep + research + logistics)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "daf3ab5d-47f0-4778-84eb-29ae74785541"
+    },
+    {
+      "parameters": {
+        "jsCode": "return ($json.packs || []).map(p => ({ json: p }));"
+      },
+      "name": "One item per pack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "a7f87407-b78f-40a7-b1ac-5a4029ea492e"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "name": "Gmail profile (who am I)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "0ba2be73-6cbf-4d4d-ac03-3b35e0d3eba4",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// SAFETY: only ever send to the Gmail account's own address (Mete himself), never to anyone else\nconst me = String($('Gmail profile (who am I)').first().json.emailAddress || '').toLowerCase();\nconst out = [];\nfor (const i of $('One item per pack').all()) {\n  const to = String(i.json.to || '').toLowerCase();\n  if (!me || to !== me) throw new Error(`Refusing to send: recipient ${to} is not the mailbox owner`);\n  if (!i.json.raw) throw new Error('No message body');\n  out.push({ json: { raw: i.json.raw, subject: i.json.subject, job_id: i.json.job_id ?? null } });\n}\nreturn out;"
+      },
+      "name": "Recipient check (to = me)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "4138686e-f292-44d5-a235-b310c834bbee"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw: $json.raw }) }}"
+      },
+      "name": "Send email to me",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "79ff0766-ad7c-4301-9575-ea39aaf35b0b"
+    },
+    {
+      "parameters": {
+        "jsCode": "// pair each Gmail result with its job (same order)\nconst src = $('Recipient check (to = me)').all();\nreturn $input.all().map((i, k) => ({ json: { job_id: src[k].json.job_id, subject: src[k].json.subject, gmail_id: i.json.id } }));"
+      },
+      "name": "Sent result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        0
+      ],
+      "id": "c3fcd1bb-f6a2-407a-81d7-fc696bded035"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/prep-pack/sent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ job_id: $json.job_id, subject: $json.subject, gmail_id: $json.gmail_id }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Remember pack sent (one per job)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1920,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "41ca6500-0a9e-4c4a-97ac-42e52c009925"
+    }
+  ],
+  "connections": {
+    "Daily 09:45 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (manual)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Build prep packs (JobHunter prep + research + logistics)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prep packs (JobHunter prep + research + logistics)": {
+      "main": [
+        [
+          {
+            "node": "One item per pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per pack": {
+      "main": [
+        [
+          {
+            "node": "Gmail profile (who am I)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail profile (who am I)": {
+      "main": [
+        [
+          {
+            "node": "Recipient check (to = me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recipient check (to = me)": {
+      "main": [
+        [
+          {
+            "node": "Send email to me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email to me": {
+      "main": [
+        [
+          {
+            "node": "Sent result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sent result": {
+      "main": [
+        [
+          {
+            "node": "Remember pack sent (one per job)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false
+}

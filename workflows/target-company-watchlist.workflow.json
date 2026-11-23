@@ -1,0 +1,185 @@
+{
+  "id": "WatchlistToJH001",
+  "name": "Target company watchlist -> JobHunter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 8 * * 1,4"
+            }
+          ]
+        }
+      },
+      "name": "Mon + Thu 08:30 Amsterdam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ee63c527-b24a-420a-92e7-042f0c740ad6"
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "9b827dd0-e547-4694-8150-1857edc0f013"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "jobhunter-watchlist",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {
+          "responseData": "{\"status\":\"started\"}"
+        }
+      },
+      "name": "Webhook (manual)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "webhookId": "3ba9b797-4b2d-4224-b1f2-49865a4df1ec",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jhWebhookToken01",
+          "name": "JobHunter webhook token"
+        }
+      },
+      "id": "e2526340-1aff-4647-bfe9-7d20b154bacd"
+    },
+    {
+      "parameters": {
+        "jsCode": "// webhook body may set {\"dry_run\": true}; dry_run can only make a run SAFER.\n// Imports stay OFF anyway while [watchlist] mode = \"dry-run\" in JobImporter countries/watchlist.toml.\nconst b = ($json && $json.body) || {};\nreturn [{ json: { dry_run: b.dry_run === true || b.dry_run === 'true' } }];"
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "6df530e7-9b3d-4d6a-9548-d669e4ac3093"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/watchlist-run",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ dry_run: $json.dry_run }) }}",
+        "options": {
+          "timeout": 3600000
+        }
+      },
+      "name": "Watchlist ATS run (JobImporter -> JobHunter, status NEW)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "a108e039-c945-4e42-8d6a-56a2ff2060cc"
+    },
+    {
+      "parameters": {
+        "jsCode": "if ($json.ok !== true) throw new Error('Watchlist run failed: ' + JSON.stringify($json).slice(0, 500));\nreturn [{ json: { summary: $json.summary } }];"
+      },
+      "name": "Check result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "10a2bff7-8e8b-47bf-b60a-30884a034a97"
+    }
+  ],
+  "connections": {
+    "Mon + Thu 08:30 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (manual)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Watchlist ATS run (JobImporter -> JobHunter, status NEW)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Watchlist ATS run (JobImporter -> JobHunter, status NEW)": {
+      "main": [
+        [
+          {
+            "node": "Check result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false
+}
