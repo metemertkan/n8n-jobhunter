@@ -8,12 +8,12 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "15 7-23 * * *"
+              "expression": "30 9 * * *"
             }
           ]
         }
       },
-      "name": "Hourly :15, 07-23 Amsterdam",
+      "name": "Daily 09:30 Amsterdam",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -62,7 +62,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Settings for this run.\n// Schedule / manual: last 2 days, mode decided by JobImporter config ([tracking] mode in config.toml).\n// Webhook body may set {\"dry_run\": true, \"newer_than\": \"60d\"}; dry_run can only make a run SAFER, never live.\nconst body = ($json && $json.body) || {};\nconst nt = /^\\d{1,3}d$/.test(String(body.newer_than || '')) ? String(body.newer_than) : '2d';\nconst dry = body.dry_run === true || body.dry_run === 'true';\nconst q = [\n  'in:inbox', `newer_than:${nt}`, '-from:me',\n  '-from:jobalerts-noreply@linkedin.com',            // LinkedIn job alerts: handled by the alerts workflow\n  '-label:JobHunter-tracked', '-label:JobHunter-needs-review', '-label:JobHunter-import-failed',\n  '-category:promotions',\n  \"(application OR applying OR applied OR apply OR interview OR candidacy OR candidate OR \\\"next steps\\\" OR unfortunately OR recruiter OR \\\"talent acquisition\\\" OR position OR role OR vacancy OR vacature OR sollicitatie OR sollicitatiegesprek OR helaas OR assessment)\",\n].join(' ');\nreturn [{ json: { dry_run: dry, newer_than: nt, q } }];"
+        "jsCode": "// Settings for this run.\n// Schedule (daily) / manual: last 3 days (1 day of overlap + a missed run; handled mail is skipped), mode decided by JobImporter config ([tracking] mode in config.toml).\n// Webhook body may set {\"dry_run\": true, \"newer_than\": \"60d\"}; dry_run can only make a run SAFER, never live.\nconst body = ($json && $json.body) || {};\nconst nt = /^\\d{1,3}d$/.test(String(body.newer_than || '')) ? String(body.newer_than) : '3d';\nconst dry = body.dry_run === true || body.dry_run === 'true';\nconst q = [\n  'in:inbox', `newer_than:${nt}`, '-from:me',\n  '-from:jobalerts-noreply@linkedin.com',            // LinkedIn job alerts: handled by the alerts workflow\n  '-label:JobHunter-tracked', '-label:JobHunter-needs-review', '-label:JobHunter-import-failed',\n  '-category:promotions',\n  \"(application OR applying OR applied OR apply OR interview OR candidacy OR candidate OR \\\"next steps\\\" OR unfortunately OR recruiter OR \\\"talent acquisition\\\" OR position OR role OR vacancy OR vacature OR sollicitatie OR sollicitatiegesprek OR helaas OR assessment)\",\n].join(' ');\nreturn [{ json: { dry_run: dry, newer_than: nt, q } }];"
       },
       "name": "Settings",
       "type": "n8n-nodes-base.code",
@@ -366,17 +366,6 @@
     }
   ],
   "connections": {
-    "Hourly :15, 07-23 Amsterdam": {
-      "main": [
-        [
-          {
-            "node": "Settings",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Run manually": {
       "main": [
         [
@@ -515,6 +504,17 @@
         [
           {
             "node": "Label email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily 09:30 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "Settings",
             "type": "main",
             "index": 0
           }

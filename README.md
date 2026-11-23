@@ -72,10 +72,14 @@ docker exec n8n n8n import:workflow --input=/workflows/linkedin-alerts-to-jobhun
 
 ## Application tracking -> JobHunter (`workflows/application-tracking-to-jobhunter.workflow.json`)
 
-Searches the inbox (`newer_than:2d`, application keywords, excluding LinkedIn job alerts, promotions, own mail
+Searches the inbox (`newer_than:3d` on scheduled/manual runs, application keywords, excluding LinkedIn job alerts, promotions, own mail
 and already labelled mail), sends each mail to `http://job_importer:8765/track-application` and applies the
 returned label (`JobHunter/tracked` or `JobHunter/needs-review`). Never trashes or archives mail.
-Triggers: hourly at :15 from 07:00 to 23:00 Amsterdam (node disabled until tracking goes live), manual, and
+Triggers: daily at 09:30 Amsterdam (3-day window, so a missed day is still covered; mail that was already
+handled is skipped), manual, and
 webhook `POST /webhook/jobhunter-application-tracking` (header `X-JobHunter-Token`, body
 `{"dry_run": true, "newer_than": "30d"}`). Live status changes also need `[tracking] mode = "live"` in
 JobImporter's config.toml.
+
+Schedule changes imported with the CLI (`n8n import:workflow` + `n8n publish:workflow`) only take effect after
+`docker compose restart n8n`; webhook changes apply without a restart.
