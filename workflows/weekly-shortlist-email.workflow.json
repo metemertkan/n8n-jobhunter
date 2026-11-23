@@ -20,8 +20,7 @@
         0,
         0
       ],
-      "id": "6e03ccd1-f7c5-4ee8-bae8-9663d4fa02db",
-      "disabled": true
+      "id": "6e03ccd1-f7c5-4ee8-bae8-9663d4fa02db"
     },
     {
       "parameters": {},
@@ -69,7 +68,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ days: 7 }) }}",
+        "jsonBody": "={{ JSON.stringify({ days: 7, test: !!($json.body && $json.body.test === true) }) }}",
         "options": {
           "timeout": 600000
         }

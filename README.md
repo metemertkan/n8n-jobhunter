@@ -88,14 +88,14 @@ Schedule changes imported with the CLI (`n8n import:workflow` + `n8n publish:wor
 
 | Workflow (id) | File | Schedule (Europe/Amsterdam) | Other triggers |
 |---|---|---|---|
-| Weekly shortlist -> email (`WeeklyShortlist01`) | `workflows/weekly-shortlist-email.workflow.json` | Sun 10:00, **disabled until Mete approves** | manual, webhook `jobhunter-weekly-shortlist` |
-| Interview prep pack -> email (`InterviewPrep001`) | `workflows/interview-prep-pack-email.workflow.json` | daily 09:45 (after tracking 09:30), **disabled until approved** | manual, webhook `jobhunter-interview-prep` `{job_id?, force?}` |
+| Weekly shortlist -> email (`WeeklyShortlist01`) | `workflows/weekly-shortlist-email.workflow.json` | Sun 10:00, published (live since 23 Nov 2026) | manual, webhook `jobhunter-weekly-shortlist` `{test?}` |
+| Interview prep pack -> email (`InterviewPrep001`) | `workflows/interview-prep-pack-email.workflow.json` | daily 09:45 (after tracking 09:30), published (live since 23 Nov 2026) | manual, webhook `jobhunter-interview-prep` `{job_id?, force?, test?}` |
 | Target company watchlist -> JobHunter (`WatchlistToJH001`) | `workflows/target-company-watchlist.workflow.json` | Mon + Thu 08:30, published | manual, webhook `jobhunter-watchlist` `{dry_run?}` |
 
 - JobImporter builds everything (see its README). n8n only calls it and sends the Gmail message.
 - Email safety: "Recipient check (to = me)" reads `users/me/profile` and refuses any recipient other than the
   mailbox owner. Nothing is trashed or relabelled.
 - Webhooks use the same `X-JobHunter-Token` header credential and are reachable only on the Docker network.
-- The watchlist stays a dry run while JobImporter `countries/watchlist.toml` has `mode = "dry-run"`.
-- To go live with the emails: in the n8n UI enable the schedule node and publish (or use `n8n publish:workflow --id=...`), then
-  `docker compose restart n8n`.
+- The watchlist imports for real (`mode = "import"` since 23 Nov 2026). Set `mode = "dry-run"` to stop imports.
+- `{"test": true}` on the email webhooks puts `[test] ` in front of the subject; a test prep pack is never remembered as sent.
+- After changing a schedule: `n8n import:workflow` + `n8n publish:workflow --id=...`, then `docker compose restart n8n`.

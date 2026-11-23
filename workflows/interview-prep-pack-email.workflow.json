@@ -20,8 +20,7 @@
         0,
         0
       ],
-      "id": "396b21c2-322a-49a9-aaa3-235fd413b85d",
-      "disabled": true
+      "id": "396b21c2-322a-49a9-aaa3-235fd413b85d"
     },
     {
       "parameters": {},
@@ -63,7 +62,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// webhook body may set {\"job_id\": 136, \"force\": true}; schedule/manual: every IN-PROGRESS job without a pack yet\nconst b = ($json && $json.body) || {};\nconst id = /^\\d+$/.test(String(b.job_id ?? '')) ? Number(b.job_id) : null;\nreturn [{ json: { job_id: id, force: b.force === true || b.force === 'true' } }];"
+        "jsCode": "// webhook body may set {\"job_id\": 136, \"force\": true, \"test\": true}; schedule/manual: every IN-PROGRESS job without a pack yet\n// test: subject gets '[test] ' and the pack is NOT remembered as sent (JobImporter also refuses to mark a [test] subject)\nconst b = ($json && $json.body) || {};\nconst id = /^\\d+$/.test(String(b.job_id ?? '')) ? Number(b.job_id) : null;\nreturn [{ json: { job_id: id, force: b.force === true || b.force === 'true', test: b.test === true } }];"
       },
       "name": "Settings",
       "type": "n8n-nodes-base.code",
@@ -82,7 +81,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ job_id: $json.job_id, force: $json.force }) }}",
+        "jsonBody": "={{ JSON.stringify({ job_id: $json.job_id, force: $json.force, test: $json.test }) }}",
         "options": {
           "timeout": 1800000
         }
