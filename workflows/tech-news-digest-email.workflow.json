@@ -1,0 +1,379 @@
+{
+  "id": "TechNewsDigest01",
+  "name": "Tech news digest -> email",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "15 */2 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Every 2 hours: collect feeds",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -400
+      ],
+      "id": "353775a8-38f5-4236-ab57-7b96a5abfa92"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/news-collect",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({}) }}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "name": "Collect feeds (JobImporter)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        -400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "69e0a5b9-8d22-42e6-b09d-20c959bbfc8f"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Daily 20:00 Amsterdam",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "dfea173e-c3bb-486b-aa5d-9756a7d1bf17"
+    },
+    {
+      "parameters": {},
+      "name": "Run manually",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ],
+      "id": "3bc773ab-e9d3-47f3-a848-9ed824697c45"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tech-news-digest",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {
+          "responseData": "{\"status\":\"started\"}"
+        }
+      },
+      "name": "Webhook (manual / test)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -200
+      ],
+      "webhookId": "b891c7a8-a879-4edc-a322-688ed73cb91f",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jhWebhookToken01",
+          "name": "JobHunter webhook token"
+        }
+      },
+      "id": "934b40e6-64b2-4177-9b7e-89a5c74ac84f"
+    },
+    {
+      "parameters": {
+        "jsCode": "// webhook body may set {\"test\": true}: subject gets '[test] ' and the items are NOT remembered as sent\nconst b = ($json && $json.body) || {};\nreturn [{ json: { test: b.test === true || b.test === 'true' } }];"
+      },
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ],
+      "id": "f57ae694-4657-461f-ba7c-aa10efc4f0e2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/news-digest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ test: $json.test }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "name": "Build digest (collect + dedup + LLM rank, JobImporter)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "806ba971-08b1-44b0-a598-71710204dd11"
+    },
+    {
+      "parameters": {
+        "jsCode": "// empty day -> no email\nreturn ($json.send === true && $json.raw) ? [{ json: $json }] : [];"
+      },
+      "name": "Anything to send?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "id": "de27ddd1-3890-4819-97df-a3b36a032768"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {}
+      },
+      "name": "Gmail profile (who am I)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "751be152-5214-4506-8258-b6c8e2a6e258",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// SAFETY: only ever send to the Gmail account's own address (Mete himself), never to anyone else\nconst me = String($('Gmail profile (who am I)').first().json.emailAddress || '').toLowerCase();\nconst d = $('Anything to send?').first().json;\nconst to = String(d.to || '').toLowerCase();\nif (!me || to !== me) throw new Error(`Refusing to send: recipient ${to} is not the mailbox owner`);\nreturn [{ json: { raw: d.raw, subject: d.subject, urls: d.urls || [] } }];"
+      },
+      "name": "Recipient check (to = me)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "3046a6c5-5fb2-4d94-ac61-74339537d828"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gmailOAuth2",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ raw: $json.raw }) }}"
+      },
+      "name": "Send email to me",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1440,
+        0
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmailMeteOAuth01",
+          "name": "Gmail (Mete)"
+        }
+      },
+      "id": "61174966-c70b-421b-80e8-65f20c40b4a1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://job_importer:8765/news-digest/sent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ urls: $('Recipient check (to = me)').first().json.urls, subject: $('Recipient check (to = me)').first().json.subject, gmail_id: $json.id }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Remember items sent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "jiAlertsToken001",
+          "name": "JobImporter alerts token"
+        }
+      },
+      "id": "2332f077-da6d-4613-a1ce-efab8ca0521a"
+    }
+  ],
+  "connections": {
+    "Daily 20:00 Amsterdam": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run manually": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (manual / test)": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Build digest (collect + dedup + LLM rank, JobImporter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build digest (collect + dedup + LLM rank, JobImporter)": {
+      "main": [
+        [
+          {
+            "node": "Anything to send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to send?": {
+      "main": [
+        [
+          {
+            "node": "Gmail profile (who am I)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail profile (who am I)": {
+      "main": [
+        [
+          {
+            "node": "Recipient check (to = me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recipient check (to = me)": {
+      "main": [
+        [
+          {
+            "node": "Send email to me",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email to me": {
+      "main": [
+        [
+          {
+            "node": "Remember items sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 2 hours: collect feeds": {
+      "main": [
+        [
+          {
+            "node": "Collect feeds (JobImporter)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Amsterdam",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [],
+  "active": false
+}
