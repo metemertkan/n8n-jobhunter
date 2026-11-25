@@ -90,7 +90,7 @@ Schedule changes imported with the CLI (`n8n import:workflow` + `n8n publish:wor
 |---|---|---|---|
 | Weekly shortlist -> email (`WeeklyShortlist01`) | `workflows/weekly-shortlist-email.workflow.json` | Sun 10:00, published (live since 23 Nov 2026) | manual, webhook `jobhunter-weekly-shortlist` `{test?}` |
 | Interview prep pack -> email (`InterviewPrep001`) | `workflows/interview-prep-pack-email.workflow.json` | daily 09:45 (after tracking 09:30), published (live since 23 Nov 2026) | manual, webhook `jobhunter-interview-prep` `{job_id?, force?, test?}` |
-| Tech news digest -> email (`TechNewsDigest01`) | `workflows/tech-news-digest-email.workflow.json` | collect every 2 h (:15); digest daily 20:00, published | manual, webhook `tech-news-digest` `{test?}` |
+| Tech news digest -> email (`TechNewsDigest01`) | `workflows/tech-news-digest-email.workflow.json` | daily 20:00 (collects all feeds, then builds the digest in the same run), published | manual, webhook `tech-news-digest` `{test?}` |
 | Target company watchlist -> JobHunter (`WatchlistToJH001`) | `workflows/target-company-watchlist.workflow.json` | Mon + Thu 08:30, published | manual, webhook `jobhunter-watchlist` `{dry_run?}` |
 
 - JobImporter builds everything (see its README). n8n only calls it and sends the Gmail message.

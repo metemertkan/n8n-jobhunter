@@ -8,54 +8,6 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "15 */2 * * *"
-            }
-          ]
-        }
-      },
-      "name": "Every 2 hours: collect feeds",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        -400
-      ],
-      "id": "353775a8-38f5-4236-ab57-7b96a5abfa92"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "http://job_importer:8765/news-collect",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({}) }}",
-        "options": {
-          "timeout": 900000
-        }
-      },
-      "name": "Collect feeds (JobImporter)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        240,
-        -400
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "jiAlertsToken001",
-          "name": "JobImporter alerts token"
-        }
-      },
-      "id": "69e0a5b9-8d22-42e6-b09d-20c959bbfc8f"
-    },
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
               "expression": "0 20 * * *"
             }
           ]
@@ -129,7 +81,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ test: $json.test }) }}",
+        "jsonBody": "={{ JSON.stringify({ test: $json.test, collect: true }) }}",
         "options": {
           "timeout": 1800000
         }
@@ -348,17 +300,6 @@
         [
           {
             "node": "Remember items sent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Every 2 hours: collect feeds": {
-      "main": [
-        [
-          {
-            "node": "Collect feeds (JobImporter)",
             "type": "main",
             "index": 0
           }
